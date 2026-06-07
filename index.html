@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KumbhFlow AI - Intelligent Crowd Management & Route Optimization</title>
+    <meta name="description" content="AI-assisted crowd forecasting, real-time density monitoring, and dynamic safe route navigation for the Prayagraj Mahakumbh Mela 2028.">
+    
+    <!-- External Stylesheets (CDNs) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
+    <!-- Local Styling -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Header / Navigation Bar -->
+    <header class="glass-panel">
+        <div class="logo-container">
+            <i class="fa-solid fa-server logo-icon"></i>
+            <div class="logo-text">
+                <h1>KumbhFlow AI</h1>
+                <span>Intelligent Crowd Optimizer</span>
+            </div>
+        </div>
+
+        <!-- System Viewport Swapper -->
+        <div class="view-switcher">
+            <button id="btn-tab-authority" class="switch-btn active" data-tab="tab-authority">
+                <i class="fa-solid fa-tower-observation"></i> Command Center
+            </button>
+            <button id="btn-tab-pilgrim" class="switch-btn" data-tab="tab-pilgrim">
+                <i class="fa-solid fa-mobile-screen-button"></i> Pilgrim Navigator
+            </button>
+        </div>
+
+        <!-- System Status Info -->
+        <div class="system-status-header">
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span id="system-status-text">SYSTEM: OPTIMAL</span>
+            </div>
+            <div class="time-container">
+                <span id="system-clock">10:02:29 AM</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="workspace-container">
+
+        <!-- 1. AUTHORITY DASHBOARD TAB -->
+        <section id="tab-authority" class="tab-content active authority-layout">
+            
+            <!-- Left Panel: Control inputs -->
+            <aside class="controls-sidebar">
+                <!-- Sim Control -->
+                <div class="glass-panel control-group">
+                    <h3><i class="fa-solid fa-gauge-high"></i> Simulation Core</h3>
+                    <div class="form-field">
+                        <label for="slider-speed">Simulation Speed (<span id="speed-val">1.0</span>x)</label>
+                        <div class="slider-container">
+                            <input type="range" id="slider-speed" min="0.5" max="5.0" step="0.5" value="1.0">
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label for="slider-spawn">Arrival Spawn Rate (<span id="spawn-val">1.5</span>/s)</label>
+                        <div class="slider-container">
+                            <input type="range" id="slider-spawn" min="0.2" max="5.0" step="0.2" value="1.5">
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label for="select-weather">Weather Factors</label>
+                        <select id="select-weather">
+                            <option value="clear">Clear Skies (Normal)</option>
+                            <option value="rain">Heavy Monsoon Rains (-50% Speed)</option>
+                            <option value="extreme_heat">Extreme Heat (-20% Speed)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Emergency Dispatch / Crowd Surge -->
+                <div class="glass-panel control-group">
+                    <h3><i class="fa-solid fa-triangle-exclamation"></i> Emergency Actions</h3>
+                    <div class="form-field">
+                        <label for="select-surge-node">Simulate Transit Surge</label>
+                        <select id="select-surge-node">
+                            <option value="junction_station">Prayagraj Junction (Train Arrival)</option>
+                            <option value="rambagh_station">Rambagh Station (Local Shuttle)</option>
+                            <option value="naini_parking">Naini Parking (South Shuttle)</option>
+                            <option value="jhalwa_parking">Jhalwa Parking (West Shuttle)</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <button id="btn-trigger-surge" class="control-btn btn-danger-outline">
+                            <i class="fa-solid fa-users-rays"></i> Spawn 350 Pilgrims
+                        </button>
+                    </div>
+                    <div class="form-field">
+                        <label for="input-alert-msg">Broadcast Authority Alert</label>
+                        <input type="text" id="input-alert-msg" placeholder="e.g. Evacuate Sector 3 Pontoon..." style="width: 100%; padding: 8px; background: #12131e; border: 1px solid var(--border-light); color: white; border-radius: 6px; font-size: 11px; outline: none; margin-bottom: 8px;">
+                        <button id="btn-broadcast-alert" class="control-btn" style="background: var(--color-primary);">
+                            <i class="fa-solid fa-bullhorn"></i> Send to Pilgrim Apps
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Infrastructure Management -->
+                <div class="glass-panel control-group">
+                    <h3><i class="fa-solid fa-bridge"></i> Infrastructure Gates</h3>
+                    <div class="form-field">
+                        <label for="select-bridge">Select Pontoon Bridge</label>
+                        <select id="select-bridge">
+                            <option value="pontoon_bridge_1">Pontoon Bridge 1 (Ganges East)</option>
+                            <option value="pontoon_bridge_2">Pontoon Bridge 2 (Ganges Central)</option>
+                            <option value="pontoon_bridge_3">Pontoon Bridge 3 (Yamuna South)</option>
+                        </select>
+                    </div>
+                    <div class="form-field" style="display: flex; gap: 8px;">
+                        <button id="btn-close-bridge" class="control-btn btn-danger-outline" style="flex: 1;">
+                            <i class="fa-solid fa-ban"></i> Close
+                        </button>
+                        <button id="btn-open-bridge" class="control-btn" style="flex: 1; border-color: rgba(16, 185, 129, 0.3); color: #a7f3d0; background: rgba(16, 185, 129, 0.05);">
+                            <i class="fa-solid fa-circle-check"></i> Open
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Panel: Dynamic Leaflet Map -->
+            <div class="map-container-wrapper glass-panel">
+                <div id="leaflet-map"></div>
+                
+                <!-- Custom Map Legend Overlay -->
+                <div class="map-legend glass-panel">
+                    <h4>Density Levels</h4>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--color-success)"></div>
+                        <span>Safe (< 60% cap)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--color-warning)"></div>
+                        <span>Warning (60-85% cap)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--color-danger)"></div>
+                        <span>Critical (> 85% cap)</span>
+                    </div>
+                    <div class="legend-item" style="margin-top: 8px;">
+                        <i class="fa-solid fa-diamond" style="color: var(--color-primary); font-size: 8px;"></i>
+                        <span style="font-size: 10px;">Active Route Path</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Analytics, AI camera feed, and logs -->
+            <aside class="analytics-sidebar">
+                <!-- CCTV Bounding Box Simulation -->
+                <div class="glass-panel cctv-card">
+                    <h3><i class="fa-solid fa-video"></i> Live Edge AI CCTV Analytics</h3>
+                    <div class="form-field" style="margin-bottom: 8px;">
+                        <select id="select-cctv-cam" style="padding: 4px; font-size: 11px;">
+                            <option value="hanuman_temple">Hanuman Temple (CAM-04)</option>
+                            <option value="pontoon_bridge_2">Pontoon Bridge 2 (CAM-05)</option>
+                            <option value="sangam_entrance">Sangam Confluence (CAM-06)</option>
+                            <option value="junction_station">Prayagraj Station (CAM-01)</option>
+                            <option value="checkpoint_beta">Sector 4 Checkpoint (CAM-03)</option>
+                        </select>
+                    </div>
+                    <div class="cctv-screen-wrapper">
+                        <canvas id="cctv-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Crowd Density forecast line graph -->
+                <div class="glass-panel chart-card">
+                    <h3><i class="fa-solid fa-chart-line"></i> 8-Hour Crowd Flow Forecast</h3>
+                    <div class="chart-container">
+                        <canvas id="forecast-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Sector occupancy comparison bar graph -->
+                <div class="glass-panel chart-card">
+                    <h3><i class="fa-solid fa-chart-bar"></i> Sector Capacity Occupancy</h3>
+                    <div class="chart-container">
+                        <canvas id="occupancy-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Active System Logs/Alerts -->
+                <div class="glass-panel alerts-panel">
+                    <h3><i class="fa-solid fa-bell"></i> Active Incidents Logs</h3>
+                    <div id="alerts-feed" class="alerts-feed">
+                        <!-- Alert items loaded dynamically -->
+                        <div class="alert-item SYSTEM">
+                            <div class="alert-item-header">
+                                <span>System Initialized</span>
+                                <span class="alert-time">10:00 AM</span>
+                            </div>
+                            <div>Monitoring 19 network nodes and 26 pathway edges. Simulation is running.</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <!-- 2. PILGRIM APP COMPANION TAB -->
+        <section id="tab-pilgrim" class="tab-content pilgrim-layout">
+            
+            <!-- Left Info Panel describing details to hackathon judges -->
+            <div class="glass-panel pilgrim-intro-card">
+                <div class="intro-header">
+                    <h2>Kumbh Companion Pilgrim App</h2>
+                    <p>This panel simulates the mobile application used by pilgrims visiting the Prayagraj Mahakumbh 2028. It connects to the central simulation data to guide users safely.</p>
+                    
+                    <div class="intro-stats-grid">
+                        <div class="intro-stat-box">
+                            <h4>Active App Users</h4>
+                            <p id="app-users-count">48,910</p>
+                        </div>
+                        <div class="intro-stat-box">
+                            <h4>Safety Alerts Active</h4>
+                            <p id="app-alerts-count" style="color: var(--color-success)">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="intro-instructions">
+                    <h4>Judges Verification Guide:</h4>
+                    <ol>
+                        <li>Select a transit hub (e.g. Rambagh Station) and target Bathing Ghat.</li>
+                        <li>Toggle between <strong>Shortest Route</strong> and <strong>KumbhFlow Safe Route</strong>.</li>
+                        <li>Observe the difference in safety metrics and estimated walking times.</li>
+                        <li>Trigger a <strong>Bridge Closure</strong> in the Command Center tab, return here, and verify the pathfinder automatically recalculates paths to bypass the closed bridge.</li>
+                        <li>Click the <strong>SOS Emergency Button</strong> on the phone and check if the Command Center receives the signal and logs the incident.</li>
+                    </ol>
+                </div>
+                
+                <div style="font-size: 11px; color: var(--text-dim);">
+                    <i class="fa-solid fa-info-circle"></i> Integrated with Live GPS, Dijkstra Path-Weighted Algorithms, and Multilingual Broadcast Services.
+                </div>
+            </div>
+
+            <!-- Right Panel: Smartphone Frame Emulator -->
+            <div class="smartphone-container">
+                <div class="phone-app">
+                    
+                    <!-- Phone Status bar -->
+                    <div class="phone-status-bar">
+                        <span id="phone-clock">10:02</span>
+                        <div class="phone-status-icons">
+                            <i class="fa-solid fa-signal"></i>
+                            <i class="fa-solid fa-wifi"></i>
+                            <i class="fa-solid fa-battery-three-quarters"></i>
+                        </div>
+                    </div>
+
+                    <!-- App Navigation bar -->
+                    <div class="app-nav-bar">
+                        <h2><i class="fa-solid fa-gopuran" style="color: var(--color-warning);"></i> Kumbh Companion</h2>
+                        <button id="btn-phone-lang" class="language-btn">हिन्दी</button>
+                    </div>
+
+                    <!-- Emergency warning bar (Initially hidden unless alerts are active) -->
+                    <div id="phone-alert-banner" class="emergency-broadcast-banner" style="display: none;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <marquee scrollamount="3" id="phone-alert-text">Warning: Central Ganges Pontoon Bridge 2 is closed due to rising water level.</marquee>
+                    </div>
+
+                    <!-- Phone Inner Content Screens -->
+                    <div class="app-content">
+
+                        <!-- VIEW 1: NAVIGATOR (Default) -->
+                        <div id="phone-view-nav" class="phone-view-container" style="display: flex; flex-direction: column; gap: 12px;">
+                            <!-- Mini Map representation -->
+                            <div class="mini-map-preview">
+                                <div id="phone-leaflet-map" style="width: 100%; height: 100%;"></div>
+                            </div>
+
+                            <!-- Destination planners -->
+                            <div class="glass-panel route-planner-box" style="background: rgba(255,255,255,0.01);">
+                                <div class="route-inputs">
+                                    <div class="route-input-row">
+                                        <i class="fa-solid fa-circle-dot dot-origin"></i>
+                                        <select id="phone-select-start">
+                                            <option value="junction_station">Prayagraj Junction Station</option>
+                                            <option value="rambagh_station" selected>Prayagraj Rambagh Station</option>
+                                            <option value="naini_parking">Naini Parking Lot (South)</option>
+                                            <option value="jhalwa_parking">Jhalwa Parking Lot (West)</option>
+                                        </select>
+                                    </div>
+                                    <div class="route-input-row">
+                                        <i class="fa-solid fa-location-dot dot-dest"></i>
+                                        <select id="phone-select-end">
+                                            <option value="sangam_entrance" selected>Triveni Sangam Bathing Area</option>
+                                            <option value="sector_5_ghat">Sector 5 Ghat (Sachan Bank)</option>
+                                            <option value="qila_ghat">Qila Bathing Ghat</option>
+                                            <option value="saraswati_ghat">Saraswati Ghat (Yamuna Bank)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="route-toggle-options">
+                                    <button id="btn-route-shortest" class="route-toggle-btn" data-mode="shortest">Shortest Path</button>
+                                    <button id="btn-route-safe" class="route-toggle-btn active" data-mode="safe">KumbhFlow Smart Path</button>
+                                </div>
+
+                                <!-- Route output details -->
+                                <div class="route-summary">
+                                    <div class="summary-metrics">
+                                        <div>
+                                            <div id="phone-route-distance" class="summary-value">1.8 km</div>
+                                            <div class="summary-label" id="lbl-route-dist">Est. Distance</div>
+                                        </div>
+                                        <div>
+                                            <div id="phone-route-time" class="summary-value">25 mins</div>
+                                            <div class="summary-label" id="lbl-route-time">Walk Time</div>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <div id="phone-route-safety" class="summary-value" style="color: var(--color-success);">94%</div>
+                                            <div class="summary-label" id="lbl-route-safety">Safety Index</div>
+                                        </div>
+                                    </div>
+                                    <div class="safety-meter">
+                                        <div id="phone-safety-bar" class="safety-fill" style="width: 94%;"></div>
+                                    </div>
+
+                                    <!-- Step-by-step guidance list -->
+                                    <div id="phone-route-instructions" class="route-instructions-list">
+                                        <div class="instruction-step">1. Exit Rambagh Station south gate.</div>
+                                        <div class="instruction-step">2. Proceed through Entry Gate A (Sector 1).</div>
+                                        <div class="instruction-step">3. Cross Pontoon Bridge 1 to Sangam entrance.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VIEW 2: LIVE GHATS -->
+                        <div id="phone-view-ghats" class="phone-view-container" style="display: none; flex-direction: column; gap: 8px;">
+                            <h3 class="phone-section-title" id="lbl-ghat-status-title">Live Ghat Crowd Densities</h3>
+                            <div id="phone-ghat-list" class="ghat-status-list">
+                                <!-- Loaded dynamically -->
+                                <div class="ghat-status-card">
+                                    <div>
+                                        <div class="ghat-name">Triveni Sangam</div>
+                                        <div class="ghat-utilization">Wait: 2 hrs • 148,500 people</div>
+                                    </div>
+                                    <span class="ghat-level MODERATE">MODERATE</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VIEW 3: EMERGENCY SOS -->
+                        <div id="phone-view-sos" class="phone-view-container" style="display: none; flex-direction: column; gap: 16px; justify-content: center; height: 100%; padding: 20px;">
+                            <div class="sos-trigger-card">
+                                <i class="fa-solid fa-kit-medical" style="font-size: 44px; color: var(--color-danger); margin-bottom: 8px;"></i>
+                                <h2 style="font-size: 18px;" id="lbl-sos-title">Emergency Medical & Security</h2>
+                                <p id="lbl-sos-desc">Pressing the button below sends your precise GPS coordinates to the command center authorities. Help will be dispatched immediately.</p>
+                                <button id="btn-phone-sos" class="phone-sos-btn">Trigger SOS Alert</button>
+                            </div>
+                            <div class="glass-panel" style="padding: 12px; font-size: 10px; color: var(--text-muted); text-align: center;">
+                                <i class="fa-solid fa-phone"></i> Mela Emergency Helpline: <strong>1920 / 112</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phone Bottom Nav Bar -->
+                    <nav class="phone-bottom-nav">
+                        <div class="phone-nav-item active" data-view="phone-view-nav">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            <span id="lbl-nav-btn">Map</span>
+                        </div>
+                        <div class="phone-nav-item" data-view="phone-view-ghats">
+                            <i class="fa-solid fa-water"></i>
+                            <span id="lbl-ghat-btn">Ghats</span>
+                        </div>
+                        <div class="phone-nav-item" data-view="phone-view-sos">
+                            <i class="fa-solid fa-circle-exclamation" style="color: var(--color-danger);"></i>
+                            <span id="lbl-sos-btn">SOS Help</span>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Map Leaflet CSS & JS and Chart JS CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Main Controller Script (ES6 Module) -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
