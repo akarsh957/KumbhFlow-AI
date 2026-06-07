@@ -27,6 +27,9 @@ export class CrowdSimulator {
         // Unique agent IDs
         this.agentCounter = 0;
 
+        // Backend connectivity flag
+        this.isBackendOnline = false;
+
         // Initialize baseline loads
         this.initBaselineCrowds();
     }
@@ -85,7 +88,7 @@ export class CrowdSimulator {
         this.triggerSystemAlert('WEATHER_CHANGE', `Weather condition updated to: ${weather.toUpperCase()}. Walking speeds adjusted.`);
     }
 
-    triggerSystemAlert(type, message, location = null) {
+    async triggerSystemAlert(type, message, location = null) {
         const alert = {
             id: Date.now() + Math.random().toString(36).substr(2, 5),
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -96,6 +99,17 @@ export class CrowdSimulator {
         };
         this.alerts.unshift(alert);
         if (this.alerts.length > 50) this.alerts.pop(); // keep last 50
+
+        // Push automatic capacity WARNING / CRITICAL events to backend database if online
+        if (this.isBackendOnline && (type === 'WARNING' || type === 'CRITICAL')) {
+            try {
+                await fetch('/api/incidents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, message, location })
+                });
+            } catch (err) {}
+        }
     }
 
     spawnSurge(sourceId, quantity = 300) {
@@ -363,5 +377,9 @@ export class CrowdSimulator {
 
     simulateSOS(lat, lng) {
         this.triggerSystemAlert('SOS', `SOS Emergency Alert received from pilgrim location [${lat.toFixed(4)}, ${lng.toFixed(4)}]. Dispatching nearest medical team.`, [lat, lng]);
+    }
+
+    getEdgeByBridgeId(bridgeId) {
+        return EDGES.find(e => e.from === bridgeId || e.to === bridgeId);
     }
 }

@@ -14,6 +14,7 @@ let authorityMap = null;
 let pilgrimMap = null;
 let simulator = null;
 let currentLanguage = 'en';
+let isBackendOnline = false;
 
 // Leaflet Layer Groups
 let authNodesLayer = null;
@@ -104,28 +105,39 @@ const TRANSLATIONS = {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Views switching tabs
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Check if backend is available
+    await checkBackend();
+
+    // 2. Initialize Views switching tabs
     initTabNavigation();
 
-    // 2. Initialize Maps
+    // 3. Initialize Maps
     initMaps();
 
-    // 3. Initialize CCTV Camera & Charts
+    // 4. Initialize CCTV Camera & Charts
     initCharts('forecast-chart', 'occupancy-chart');
     initCamera('cctv-canvas');
 
-    // 4. Initialize Simulation Engine
+    // 5. Initialize Simulation Engine
     initSimulation();
+    if (isBackendOnline && simulator) {
+        simulator.isBackendOnline = true;
+    }
 
-    // 5. Bind UI Controls
+    // 6. Bind UI Controls
     bindControls();
 
-    // 6. Init Route on startup
+    // 7. Init Route on startup
     updatePilgrimRoute();
 
-    // 7. Start system clock
+    // 8. Start system clock
     startClock();
+
+    // 9. Start polling backend if active
+    if (isBackendOnline) {
+        startBackendSync();
+    }
 });
 
 /**
@@ -649,44 +661,170 @@ function bindControls() {
         document.getElementById('speed-val').innerText = val;
         simulator.setSpeed(val);
     });
+    document.getElementById('slider-speed').addEventListener('change', async (e) => {
+        if (isBackendOnline) {
+            try {
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ simulationSpeed: parseFloat(e.target.value) })
+                });
+            } catch (err) {}
+        }
+    });
 
     document.getElementById('slider-spawn').addEventListener('input', (e) => {
         const val = e.target.value;
         document.getElementById('spawn-val').innerText = val;
         simulator.setSpawnRate(val);
     });
+    document.getElementById('slider-spawn').addEventListener('change', async (e) => {
+        if (isBackendOnline) {
+            try {
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ spawnRate: parseFloat(e.target.value) })
+                });
+            } catch (err) {}
+        }
+    });
 
-    document.getElementById('select-weather').addEventListener('change', (e) => {
-        simulator.setWeather(e.target.value);
+    document.getElementById('select-weather').addEventListener('change', async (e) => {
+        const weatherVal = e.target.value;
+        simulator.setWeather(weatherVal);
+        
+        if (isBackendOnline) {
+            try {
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ weather: weatherVal })
+                });
+                
+                await fetch('/api/incidents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'WEATHER_CHANGE',
+                        message: `Weather condition updated to: ${weatherVal.toUpperCase()}. Walking speeds adjusted.`
+                    })
+                });
+            } catch (err) {}
+        }
     });
 
     // 2. Crowd surge action
-    document.getElementById('btn-trigger-surge').addEventListener('click', () => {
+    document.getElementById('btn-trigger-surge').addEventListener('click', async () => {
         const sourceId = document.getElementById('select-surge-node').value;
+        const sourceName = NODES[sourceId] ? NODES[sourceId].name : sourceId;
         simulator.spawnSurge(sourceId, 350);
+
+        if (isBackendOnline) {
+            try {
+                await fetch('/api/incidents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'SURGE',
+                        message: `Crowd Surge detected at ${sourceName}. Spawning 350 pilgrim groups.`,
+                        location: NODES[sourceId] ? NODES[sourceId].coords : null
+                    })
+                });
+            } catch (err) {}
+        }
     });
 
     // 3. Authority alerts broadcast
-    document.getElementById('btn-broadcast-alert').addEventListener('click', () => {
+    document.getElementById('btn-broadcast-alert').addEventListener('click', async () => {
         const input = document.getElementById('input-alert-msg');
         const msg = input.value.trim();
         if (msg) {
             simulator.triggerSystemAlert('SYSTEM', `AUTHORITY ALERT: ${msg}`);
             input.value = '';
+
+            if (isBackendOnline) {
+                try {
+                    await fetch('/api/incidents', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'SYSTEM',
+                            message: `AUTHORITY ALERT: ${msg}`
+                        })
+                    });
+                } catch (err) {}
+            }
         }
     });
 
     // 4. Infrastructure control triggers (Open/Close Bridges)
-    document.getElementById('btn-close-bridge').addEventListener('click', () => {
+    document.getElementById('btn-close-bridge').addEventListener('click', async () => {
         const bridgeId = document.getElementById('select-bridge').value;
+        const bridgeName = NODES[bridgeId] ? NODES[bridgeId].name : bridgeId;
+        const bridgeCoords = NODES[bridgeId] ? NODES[bridgeId].coords : null;
+        
         simulator.closeBridge(bridgeId);
         updatePilgrimRoute(); // refresh active path planner
+
+        if (isBackendOnline) {
+            try {
+                const res = await fetch('/api/settings');
+                const settings = await res.json();
+                const bridgeStates = settings.bridgeStates || {};
+                bridgeStates[bridgeId] = 'closed';
+                
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bridgeStates })
+                });
+
+                await fetch('/api/incidents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'BRIDGE_CLOSE',
+                        message: `${bridgeName} has been CLOSED by authorities for safety. Routing recalculated.`,
+                        location: bridgeCoords
+                    })
+                });
+            } catch (err) {}
+        }
     });
 
-    document.getElementById('btn-open-bridge').addEventListener('click', () => {
+    document.getElementById('btn-open-bridge').addEventListener('click', async () => {
         const bridgeId = document.getElementById('select-bridge').value;
+        const bridgeName = NODES[bridgeId] ? NODES[bridgeId].name : bridgeId;
+        const bridgeCoords = NODES[bridgeId] ? NODES[bridgeId].coords : null;
+
         simulator.openBridge(bridgeId);
         updatePilgrimRoute();
+
+        if (isBackendOnline) {
+            try {
+                const res = await fetch('/api/settings');
+                const settings = await res.json();
+                const bridgeStates = settings.bridgeStates || {};
+                bridgeStates[bridgeId] = 'open';
+                
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bridgeStates })
+                });
+
+                await fetch('/api/incidents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'SYSTEM',
+                        message: `${bridgeName} is now OPEN. Normal traffic resumed.`,
+                        location: bridgeCoords
+                    })
+                });
+            } catch (err) {}
+        }
     });
 
     // 5. CCTV Camera selector bind
@@ -711,12 +849,26 @@ function bindControls() {
     });
 
     // 7. Pilgrim SOS Button trigger
-    document.getElementById('btn-phone-sos').addEventListener('click', () => {
+    document.getElementById('btn-phone-sos').addEventListener('click', async () => {
         const startId = document.getElementById('phone-select-start').value;
         const startNode = NODES[startId];
         if (startNode) {
             simulator.simulateSOS(startNode.coords[0], startNode.coords[1]);
             alert(currentLanguage === 'en' ? 'SOS alert transmitted to police control room!' : 'एसओएस अलर्ट पुलिस नियंत्रण कक्ष को भेज दिया गया है!');
+
+            if (isBackendOnline) {
+                try {
+                    await fetch('/api/incidents', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'SOS',
+                            message: `SOS Emergency Alert received from pilgrim location [${startNode.coords[0].toFixed(4)}, ${startNode.coords[1].toFixed(4)}]. Dispatching nearest medical team.`,
+                            location: startNode.coords
+                        })
+                    });
+                } catch (err) {}
+            }
         }
     });
 
@@ -779,4 +931,94 @@ function startClock() {
         const phoneTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         document.getElementById('phone-clock').innerText = phoneTime;
     }, 1000);
+}
+
+/**
+ * Check if Express MERN-style backend is active
+ */
+async function checkBackend() {
+    try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+            isBackendOnline = true;
+            console.log("KumbhFlow API Backend: ONLINE. Database synchronization enabled.");
+            return true;
+        }
+    } catch (e) {}
+    isBackendOnline = false;
+    console.log("KumbhFlow API Backend: OFFLINE. Running in graceful local fallback mode.");
+    return false;
+}
+
+/**
+ * Start periodic polling of backend state to sync multiple users / tab views
+ */
+function startBackendSync() {
+    setInterval(async () => {
+        if (!isBackendOnline) return;
+        try {
+            // 1. Sync Settings
+            const resSettings = await fetch('/api/settings');
+            if (resSettings.ok) {
+                const settings = await resSettings.json();
+                syncSettingsToSimulator(settings);
+            }
+
+            // 2. Sync Active Incidents Log
+            const resIncidents = await fetch('/api/incidents');
+            if (resIncidents.ok) {
+                const logs = await resIncidents.json();
+                if (simulator) {
+                    simulator.alerts = logs;
+                    updateAlertsLogs(logs);
+                }
+            }
+        } catch (e) {
+            console.warn("Backend synchronization connection lost.");
+            isBackendOnline = false;
+        }
+    }, 1500);
+}
+
+/**
+ * Synchronize settings object from backend into the current simulator configuration
+ */
+function syncSettingsToSimulator(settings) {
+    if (!simulator) return;
+
+    // A. Sync Weather
+    if (settings.weather && settings.weather !== simulator.weather) {
+        simulator.weather = settings.weather;
+        document.getElementById('select-weather').value = settings.weather;
+    }
+
+    // B. Sync Simulation Speed
+    if (settings.simulationSpeed !== undefined && Math.abs(settings.simulationSpeed - simulator.speedMultiplier) > 0.01) {
+        simulator.speedMultiplier = settings.simulationSpeed;
+        document.getElementById('slider-speed').value = settings.simulationSpeed;
+        document.getElementById('speed-val').innerText = settings.simulationSpeed;
+    }
+
+    // C. Sync Spawn Rate
+    if (settings.spawnRate !== undefined && Math.abs(settings.spawnRate - simulator.spawnRate) > 0.01) {
+        simulator.spawnRate = settings.spawnRate;
+        document.getElementById('slider-spawn').value = settings.spawnRate;
+        document.getElementById('spawn-val').innerText = settings.spawnRate;
+    }
+
+    // D. Sync Bridge states
+    if (settings.bridgeStates) {
+        let stateChanged = false;
+        for (const bridgeId in settings.bridgeStates) {
+            const status = settings.bridgeStates[bridgeId];
+            const edge = simulator.getEdgeByBridgeId(bridgeId);
+            if (edge && edge.status !== status) {
+                edge.status = status;
+                stateChanged = true;
+            }
+        }
+        if (stateChanged) {
+            updatePilgrimRoute();
+        }
+    }
 }

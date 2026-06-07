@@ -143,24 +143,49 @@ $$\text{Weight} = \text{Distance} \times \left(1.0 + 10.0 \times \text{Density}^
 
 ## 4. Local Setup and Deployment
 
+### Option A: Full MERN-Stack Backend Mode (Persists Settings & SOS Logs in MongoDB Atlas)
+
 1.  **Clone the Repository**:
     ```bash
     git clone https://github.com/akarsh957/KumbhFlow-AI.git
     cd KumbhFlow-AI
     ```
 
-2.  **Start a Local Web Server**:
-    Since the application uses ES6 modules, it must be run from a local server context (not directly by double-clicking `index.html`).
-    
-    Using Node.js (`npx`):
+2.  **Install Dependencies**:
     ```bash
-    npx http-server -p 8081
-    ```
-    
-    Or using Python:
-    ```bash
-    python -m http.server 8081
+    npm install
     ```
 
-3.  **Access the Dashboard**:
-    Open your browser and navigate to **`http://localhost:8081`**.
+3.  **Configure Environment Variables**:
+    *   Copy the `.env.example` template:
+        ```bash
+        cp .env.example .env
+        ```
+    *   Open `.env` and fill in your **MongoDB Atlas** Connection URI:
+        ```env
+        MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/kumbhflow
+        ```
+    *   *(Note: If the URI is missing or if connection fails, the server gracefully falls back to local in-memory storage without crashing).*
+
+4.  **Start the Server**:
+    ```bash
+    npm start
+    ```
+    This launches the Node/Express server on **`http://localhost:8081`**, serving the frontend static files while linking to your Atlas cluster.
+
+---
+
+### Option B: Standalone Static Frontend Fallback Mode
+
+If you wish to bypass the backend and run the client-side simulation directly:
+1.  Navigate into the directory.
+2.  Start any standard static web server (such as Python or static `npx http-server`):
+    ```bash
+    # Node.js
+    npx http-server -p 8081
+    
+    # Python
+    python -m http.server 8081
+    ```
+3.  Access the interface at **`http://localhost:8081`**. The app will detect the backend is offline and fall back gracefully to running the simulation entirely inside your browser's memory.
+
